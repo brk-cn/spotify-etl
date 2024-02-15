@@ -1,10 +1,15 @@
-from flask import Flask, redirect, request, session
+from flask import Flask, redirect, request, session, jsonify
+from unidecode import unidecode
 from dotenv import load_dotenv
+from datetime import datetime
 import urllib.parse
 import requests
 import base64
 import time
+import uuid
+import html
 import os
+
 
 load_dotenv()
 client_id = os.getenv("CLIENT_ID")
@@ -12,11 +17,11 @@ client_secret = os.getenv("CLIENT_SECRET")
 redirect_uri = os.getenv("REDIRECT_URI")
 
 app = Flask(__name__)
-app.secret_key = b'_5#y2L"F4Q8znxec]/'
+app.secret_key = str(uuid.uuid4())
 
 @app.route("/")
 def index():
-    return "<a href='/login'>Login</a>"
+    return "<a href='/login'>Spotify ile Giriş Yap</a>"
 
 
 @app.route("/login")
@@ -35,10 +40,14 @@ def login():
 @app.route("/callback")
 def callback():
     code = request.args.get("code")
+    error = request.args.get("error")
+
+    if error:
+        return jsonify({"error": error})
 
     if code:
         token_url = "https://accounts.spotify.com/api/token"
-        payload = {
+        data = {
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": redirect_uri,
@@ -48,35 +57,85 @@ def callback():
             "Authorization": "Basic "
             + base64.b64encode((client_id + ":" + client_secret).encode()).decode(),
         }
-        response = requests.post(token_url, data=payload, headers=headers)
+
+        response = requests.post(token_url, data=data, headers=headers)
+
         if response.status_code == 200:
-            access_token = response.json()["access_token"]
-            session["access_token"] = access_token
+            session["access_token"] = response.json()["access_token"]
+            session["refresh_token"] = response.json()["refresh_token"]
+            session["expires_at"] = datetime.now().timestamp() + response.json()["expires_in"]
+
             return redirect("/tracks")
 
+def get_genres(artist_id):
+    api_base_url = "https://api.spotify.com/v1"
+    headers = {"Authorization": f"Bearer {session.get('access_token')}"}
+    
+    response = requests.get(f"{api_base_url}/artists/{artist_id}", headers=headers)
+    if response.status_code == 200:
+        artist_data = response.json()
+        genres = artist_data.get("genres", [])
+        return genres
+    else:
+        return []
 
 @app.route("/tracks")
 def get_track_list():
     if "access_token" not in session:
         return redirect("/login")
     
+    if datetime.now().timestamp() > session["expires_at"]:
+        return redirect("/refresh-token")
+    
     today_start_timestamp = int(time.mktime(time.localtime())) 
 
-    api_base_url = "https://api.spotify.com/v1/"
+    api_base_url = "https://api.spotify.com/v1"
     params = {
         "limit": 50,
         "after": today_start_timestamp*1000
     }
     headers = {"Authorization": f"Bearer {session["access_token"]}"}
 
-    response = requests.get(f"{api_base_url}me/player/recently-played", headers=headers)
+    response = requests.get(f"{api_base_url}/me/player/recently-played", headers=headers)
+
     if response.status_code == 200:
-        track_list = response.json()
-        return track_list
+        response.encoding = 'utf-8'
+        tracks = response.json()
+        final_track_list = []
+        for item in tracks["items"]:
+            track_info = {
+                "artist_id": item["track"]["artists"][0]["id"],
+                "song_name": unidecode(item["track"]["name"]),
+                "artist_name": unidecode(item["track"]["artists"][0]["name"]),
+                "played_at": datetime.strptime(item["played_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%d-%m-%Y"),
+                "genres": get_genres(item["track"]["artists"][0]["id"])
+            }
+            final_track_list.append(track_info)
+
+        return final_track_list
     else:
         return response.json()
-
-
-
+    
+@app.route("/refresh-token")
+def refresh_token():
+    if "access_token" not in session:
+        return redirect("/login")
+    
+    if datetime.now().timestamp() > session["expires_at"]:
+        token_url = "https://accounts.spotify.com/api/token"
+        data = {
+            "grant_type": "refresh_token",
+            "refresh_token": session.get("refresh_toeknn"),
+            "client_id": client_id,
+            "client_secret": client_secret
+        }
+        response = requests.post(token_url, data=data)
+        if response.status_code == 200:
+            session["access_token"] = response.json()["access_token"]
+            session["refresh_token"] = response.json()["refresh_token"]
+            session["expires_at"] = datetime.now().timestamp() + response.json()["expires_in"]
+        
+            return redirect("/tracks")
+    
 if __name__ == "__main__":
     app.run(debug=True, port=8080)
