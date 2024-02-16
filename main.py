@@ -1,15 +1,14 @@
 from flask import Flask, redirect, request, session, jsonify
+from datetime import datetime, timedelta
 from unidecode import unidecode
 from dotenv import load_dotenv
-from datetime import datetime
 import urllib.parse
 import requests
 import base64
 import time
 import uuid
-import html
 import os
-
+from db import create_table, save_data
 
 load_dotenv()
 client_id = os.getenv("CLIENT_ID")
@@ -67,55 +66,6 @@ def callback():
 
             return redirect("/tracks")
 
-def get_genres(artist_id):
-    api_base_url = "https://api.spotify.com/v1"
-    headers = {"Authorization": f"Bearer {session.get('access_token')}"}
-    
-    response = requests.get(f"{api_base_url}/artists/{artist_id}", headers=headers)
-    if response.status_code == 200:
-        artist_data = response.json()
-        genres = artist_data.get("genres", [])
-        return genres
-    else:
-        return []
-
-@app.route("/tracks")
-def get_track_list():
-    if "access_token" not in session:
-        return redirect("/login")
-    
-    if datetime.now().timestamp() > session["expires_at"]:
-        return redirect("/refresh-token")
-    
-    today_start_timestamp = int(time.mktime(time.localtime())) 
-
-    api_base_url = "https://api.spotify.com/v1"
-    params = {
-        "limit": 50,
-        "after": today_start_timestamp*1000
-    }
-    headers = {"Authorization": f"Bearer {session["access_token"]}"}
-
-    response = requests.get(f"{api_base_url}/me/player/recently-played", headers=headers)
-
-    if response.status_code == 200:
-        response.encoding = 'utf-8'
-        tracks = response.json()
-        final_track_list = []
-        for item in tracks["items"]:
-            track_info = {
-                "artist_id": item["track"]["artists"][0]["id"],
-                "song_name": unidecode(item["track"]["name"]),
-                "artist_name": unidecode(item["track"]["artists"][0]["name"]),
-                "played_at": datetime.strptime(item["played_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%d-%m-%Y"),
-                "genres": get_genres(item["track"]["artists"][0]["id"])
-            }
-            final_track_list.append(track_info)
-
-        return final_track_list
-    else:
-        return response.json()
-    
 @app.route("/refresh-token")
 def refresh_token():
     if "access_token" not in session:
@@ -137,5 +87,57 @@ def refresh_token():
         
             return redirect("/tracks")
     
+
+def get_genres(artist_id):
+    api_base_url = "https://api.spotify.com/v1"
+    headers = {"Authorization": f"Bearer {session.get('access_token')}"}
+    
+    response = requests.get(f"{api_base_url}/artists/{artist_id}", headers=headers)
+    if response.status_code == 200:
+        artist_data = response.json()
+        genres = artist_data.get("genres", [])
+        return genres
+    else:
+        return []
+
+@app.route("/tracks")
+def get_track_list():
+    if "access_token" not in session:
+        return redirect("/login")
+    
+    if datetime.now().timestamp() > session["expires_at"]:
+        return redirect("/refresh-token")
+    
+    api_base_url = "https://api.spotify.com/v1"
+    params = {
+        "limit": 50,
+        "before": int((datetime.now().timestamp()))*1000
+    }
+    headers = {"Authorization": f"Bearer {session["access_token"]}"}
+
+    response = requests.get(f"{api_base_url}/me/player/recently-played", headers=headers, params=params)
+
+    if response.status_code == 200:
+        tracks = response.json()
+        final_track_list = []
+        today = datetime.now().strftime("%d-%m-%Y")
+        for item in tracks["items"]:
+            played_at = datetime.strptime(item["played_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%d-%m-%Y")
+            if played_at == today:
+                track_info = {
+                    "song_name": unidecode(item["track"]["name"]),
+                    "artist_name": unidecode(item["track"]["artists"][0]["name"]),
+                    "played_at": played_at,
+                    "genres": get_genres(item["track"]["artists"][0]["id"])
+                }
+                save_data(played_at, unidecode(item["track"]["artists"][0]["name"]), unidecode(item["track"]["name"]), ", ".join(get_genres(item["track"]["artists"][0]["id"])))
+                final_track_list.append(track_info)
+
+        return final_track_list
+    else:
+        return response.json()
+    
+
 if __name__ == "__main__":
+    create_table()
     app.run(debug=True, port=8080)
