@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 import urllib.parse
 import requests
 import base64
-import time
 import uuid
 import os
 from db import create_table, save_data
@@ -75,7 +74,7 @@ def refresh_token():
         token_url = "https://accounts.spotify.com/api/token"
         data = {
             "grant_type": "refresh_token",
-            "refresh_token": session.get("refresh_toeknn"),
+            "refresh_token": session.get("refresh_token"),
             "client_id": client_id,
             "client_secret": client_secret
         }
@@ -124,11 +123,13 @@ def get_track_list():
         for item in tracks["items"]:
             played_at = datetime.strptime(item["played_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%d-%m-%Y")
             if played_at == today:
+                artist_id = item["track"]["artists"][0]["id"]
+                genres = get_genres(artist_id)
                 track_info = {
                     "song_name": unidecode(item["track"]["name"]),
                     "artist_name": unidecode(item["track"]["artists"][0]["name"]),
                     "played_at": played_at,
-                    "genres": get_genres(item["track"]["artists"][0]["id"])
+                    "genres": genres
                 }
                 save_data(played_at, unidecode(item["track"]["artists"][0]["name"]), unidecode(item["track"]["name"]), ", ".join(get_genres(item["track"]["artists"][0]["id"])))
                 final_track_list.append(track_info)
