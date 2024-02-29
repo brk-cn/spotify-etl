@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tracks</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inconsolata&display=swap");
+
+      * {
+        padding: 0;
+        margin: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Inconsolata", monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <table>
+      <thead>
+        <tr>
+          <th>Played At</th>
+          <th>Song Name</th>
+          <th>Artist Name</th>
+          <th>Genres</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for track in data %}
+        <tr>
+          <td>{{ track.played_at }}</td>
+          <td>{{ track.song_name }}</td>
+          <td>{{ track.artist_name }}</td>
+          <td>{{ track.genres }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>
