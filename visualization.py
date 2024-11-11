@@ -11,7 +11,7 @@ df['played_at'] = pd.to_datetime(df['played_at'])
 
 daily_listen_count = df.groupby(df['played_at'].dt.date).size()
 
-genres_count = df['genres'].str.split(',').explode().str.strip().value_counts()
+genres_count = df['genres'].str.split(',').explode().str.strip().value_counts().head(25)
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
 

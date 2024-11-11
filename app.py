@@ -15,26 +15,21 @@ redirect_uri = os.getenv("REDIRECT_URI")
 
 spotify_api_handler = SpotifyAPIHandler(client_id, client_secret, redirect_uri)
 
-
 @app.route("/")
 def index():
     return render_template("index.html")
-
 
 @app.route("/login")
 def login():
     return spotify_api_handler.login()
 
-
 @app.route("/callback")
 def callback():
     return spotify_api_handler.callback()
 
-
 @app.route("/refresh-token")
 def refresh_token():
     return spotify_api_handler.refresh_token()
-
 
 @app.route("/tracks")
 def get_tracks():
@@ -45,7 +40,6 @@ def get_tracks():
     # print(sqlite_handler.read_data())
 
     return render_template("tracks.html", data=df.to_dict(orient="records"))
-
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8888)

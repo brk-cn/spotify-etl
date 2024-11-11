@@ -1,7 +1,6 @@
 import sqlite3
 import pandas as pd
 
-
 class SQLiteHandler:
     def __init__(self, db_path):
         self.db_path = db_path
@@ -22,7 +21,7 @@ class SQLiteHandler:
             """
             cursor.execute(query)
 
-            df.to_sql(table_name, conn, index=False, if_exists="append")
+            df.to_sql(table_name, conn, index=False, if_exists="replace")
 
             conn.commit()
 

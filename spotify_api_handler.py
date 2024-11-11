@@ -1,11 +1,10 @@
 from flask import redirect, request, session, jsonify
 from urllib.parse import urlencode
-from datetime import datetime
 from unidecode import unidecode
+from datetime import datetime
 import pandas as pd
 import requests
 import base64
-
 
 class SpotifyAPIHandler:
     def __init__(self, client_id, client_secret, redirect_uri):
@@ -20,6 +19,7 @@ class SpotifyAPIHandler:
             "response_type": "code",
             "scope": "user-read-private user-read-email user-read-recently-played",
             "redirect_uri": self.redirect_uri,
+            "show_dialog": True,
         }
         redirect_url = f"{auth_url}?{urlencode(params)}"
         return redirect(redirect_url)
@@ -50,9 +50,7 @@ class SpotifyAPIHandler:
             if response.status_code == 200:
                 session["access_token"] = response.json()["access_token"]
                 session["refresh_token"] = response.json()["refresh_token"]
-                session["expires_at"] = (
-                    datetime.now().timestamp() + response.json()["expires_in"]
-                )
+                session["expires_at"] = datetime.now().timestamp() + response.json()["expires_in"]
                 return redirect("/tracks")
             else:
                 return response.json()
@@ -72,12 +70,9 @@ class SpotifyAPIHandler:
             response = requests.post(token_url, data=data)
             if response.status_code == 200:
                 session["access_token"] = response.json()["access_token"]
-                session["refresh_token"] = response.json()["refresh_token"]
-                session["expires_at"] = (
-                    datetime.now().timestamp() + response.json()["expires_in"]
-                )
-
+                session["expires_at"] = datetime.now().timestamp() + response.json()["expires_in"]
                 return redirect("/tracks")
+
 
     def get_tracks(self):
         if "access_token" not in session:
@@ -88,9 +83,8 @@ class SpotifyAPIHandler:
 
         api_base_url = "https://api.spotify.com/v1"
         today = datetime.now().strftime("%Y-%m-%d")
-
-        params = {"limit": 50, "after": f"{today}T00:00:00Z"}
         headers = {"Authorization": f"Bearer {session['access_token']}"}
+        params = {"limit": 50, "after": f"{today}T00:00:00Z"}
 
         response = requests.get(
             f"{api_base_url}/me/player/recently-played", headers=headers, params=params
@@ -98,7 +92,6 @@ class SpotifyAPIHandler:
 
         if response.status_code == 200:
             tracks = response.json()
-
             df = pd.DataFrame(
                 [
                     {
@@ -111,7 +104,6 @@ class SpotifyAPIHandler:
                 ]
             )
             return df
-
         else:
             return pd.DataFrame()
 
