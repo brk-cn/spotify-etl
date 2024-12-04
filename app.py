@@ -1,7 +1,10 @@
+from selenium_login_handler import SeleniumLoginHandler
 from spotify_api_handler import SpotifyAPIHandler
 from sqlite_handler import SQLiteHandler
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from dotenv import load_dotenv
+import threading
+import signal
 import uuid
 import os
 
@@ -37,9 +40,17 @@ def get_tracks():
     db_path = "listening_history.sqlite"
     sqlite_handler = SQLiteHandler(db_path)
     sqlite_handler.save_df_to_db(df)
-    # print(sqlite_handler.read_data())
+    
+    template = render_template("tracks.html", data=df.to_dict(orient="records"))
+    threading.Timer(1.0, shutdown).start()
+    return template
 
-    return render_template("tracks.html", data=df.to_dict(orient="records"))
+@app.route('/shutdown', methods=['POST'])
+def shutdown():
+    os.kill(os.getpid(), signal.SIGINT)
+    return jsonify({ "success": True, "message": "Server is shutting down..." })
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8888)
+    threading.Thread(target=lambda: app.run(debug=False, host="0.0.0.0", port=8888)).start()
+    selenium_handler = SeleniumLoginHandler()
+    selenium_handler.login()
