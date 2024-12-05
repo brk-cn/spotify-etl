@@ -21,7 +21,7 @@ class SQLiteHandler:
             """
             cursor.execute(query)
 
-            df.to_sql(table_name, conn, index=False, if_exists="replace")
+            df.to_sql(table_name, conn, index=False, if_exists="append")
 
             conn.commit()
 
